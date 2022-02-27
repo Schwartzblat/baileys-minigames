@@ -1,0 +1,19 @@
+{
+  "name": "baileys-minigames",
+  "version": "1.0.0",
+  "description": "module that helps creating minigames with baileys module.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Schwartzblat/baileys-minigames.git"
+  },
+  "author": "Alon Schwartzblat",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Schwartzblat/baileys-minigames/issues"
+  },
+  "homepage": "https://github.com/Schwartzblat/baileys-minigames#readme"
+}
