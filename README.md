@@ -9,49 +9,69 @@ npm install wa-minigames
 ## Example Usage
 
 ```js
-const {Client} = require('whatsapp-web.js');
-const {MiniGames, MiniGame} = require('index');
+const {default: makeWASocket, makeInMemoryStore, useSingleFileAuthState, DisconnectReason} = require('@adiwajshing/baileys');
+const {Boom} = require('@hapi/boom');
+const P = require('pino');
+const { MiniGames, MiniGame } = require('index.js');
 
 class MyGame extends MiniGame {
-    constructor(message, client) {
+    constructor(message, sock){
         super();
-        this.client = client;
-        this.chatId = message._getChatId();
-        this.answer = Math.floor(Math.random() * 100).toString();
-        this.client.sendMessage(this.chatId, "Game Started! Guess the number!");
+        this.sock = sock;
+        this.chatId = message.key.remoteJid;
+        this.answer = Math.floor(Math.random() * 10).toString();
+        this.sock.sendMessage(this.chatId, {text: "Game Started! Guess the number!"});
     }
-
-    async procMessage(message) {
-        if (message.body === this.answer) {
-            await this.client.sendMessage(this.chatId, 'You are right!');
+    async procMessage(message){
+        if (message.body===this.answer){
+            await this.sock.sendMessage(this.chatId, {text: 'You are right!'});
             this.gameOver();
-        } else if (!message.fromMe) {
-            await this.client.sendMessage(this.chatId, 'You are wrong.');
+        }else if (!message.fromMe){
+            await this.sock.sendMessage(this.chatId, {text: 'You are wrong.'});
         }
     }
-
-    gameOver() {
+    gameOver(){
         super.gameOver();
+        this.socket.sendMessage(this.chatId, {text: 'Game Over!'});
     }
 }
 
-const client = new Client();
-const minigames = new MiniGames();
-client.on('qr', (qr) => {
-    console.log('QR RECEIVED', qr);
-});
+const store = makeInMemoryStore({ logger: P().child({ level: 'fatal', stream: 'store'}) });
+store.readFromFile('baileys_store_multi.json');
+setInterval(() => {
+    store.writeToFile('baileys_store_multi.json');
+}, 10_000)
 
-client.on('ready', () => {
-    console.log('Client is ready!');
-});
+const { state, saveState } = useSingleFileAuthState('auth_info_multi.json')
+const miniGames = new MiniGames();
+// start a connection
+const startSock = () => {
+    const sock = makeWASocket({
+        logger: P({ level: 'fatal' }),
+        printQRInTerminal: true,
+        auth: state
+    })
+    store.bind(sock.ev)
 
-client.on('message_create', async (msg) => {
-    if (msg.body === '!start') {
-        await minigames.addGameChat(msg._getChatId(), new MyGame(msg, client));
-    }
-    minigames.forwardMsg(msg);
-});
+    sock.ev.on('messages.upsert', m => {
+        const message = m.messages[0]
+        message.body = message?.message?.conversation || message?.message?.extendedTextMessage?.text
+            || message?.message?.imageMessage?.caption|| message?.message?.videoMessage?.caption;
+        miniGames.forwardMsg(message, sock);
+    })
 
-client.initialize();
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect } = update
+        if(connection === 'close') {
+            if((new Boom(lastDisconnect.error))?.output?.statusCode !== DisconnectReason.loggedOut) {
+                startSock()
+            }
+        }
+    })
+    sock.ev.on('creds.update', saveState)
+    return sock
+}
+
+startSock()
 
 ```

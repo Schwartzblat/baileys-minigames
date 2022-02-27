@@ -1,8 +1,7 @@
-const {default: makeWASocket, makeInMemoryStore, useSingleFileAuthState, proto, DisconnectReason} = require('@adiwajshing/baileys');
+const {default: makeWASocket, makeInMemoryStore, useSingleFileAuthState, DisconnectReason} = require('@adiwajshing/baileys');
 const {Boom} = require('@hapi/boom');
 const P = require('pino');
 const { MiniGames, MiniGame } = require('index.js');
-const util = require("util");
 
 class MyGame extends MiniGame {
     constructor(message, sock){
@@ -36,21 +35,12 @@ const { state, saveState } = useSingleFileAuthState('auth_info_multi.json')
 const miniGames = new MiniGames();
 // start a connection
 const startSock = () => {
-
     const sock = makeWASocket({
         logger: P({ level: 'fatal' }),
         printQRInTerminal: true,
-        auth: state,
-        version: [2, 2204, 13],
-        getMessage: async key => {
-            return {
-                conversation: 'hello'
-            }
-        }
+        auth: state
     })
-
     store.bind(sock.ev)
-    console.log("Client Ready!")
 
     sock.ev.on('messages.upsert', m => {
         const message = m.messages[0]
@@ -62,16 +52,11 @@ const startSock = () => {
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update
         if(connection === 'close') {
-            // reconnect if not logged out
             if((new Boom(lastDisconnect.error))?.output?.statusCode !== DisconnectReason.loggedOut) {
                 startSock()
-            } else {
-                // console.log('connection closed')
             }
         }
-        // console.log('connection update', update)
     })
-    // listen for when the auth credentials is updated
     sock.ev.on('creds.update', saveState)
     return sock
 }
