@@ -3,8 +3,8 @@ A module that helps you to create minigames with <a href="https://github.com/ped
 ## Installation
 
 ```console
-npm install whatsapp-web.js
-npm install wa-minigames
+npm i @adiwajshing/baileys
+npm install baileys-minigames
 ```
 ## Example Usage
 
